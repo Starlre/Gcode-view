@@ -1,0 +1,19 @@
+﻿# L10nHook 配置文件
+# 该文件用于控制程序启动时的行为
+
+# 是否启用字典写入功能
+# 可选值: true/false, 1/0, yes/no, on/off
+DictionaryWriteEnabled=false
+
+# 是否启用合并待翻译规则功能
+# 可选值: true/false, 1/0, yes/no, on/off
+MergeUntranslatedRulesEnabled=false
+
+# 是否启用导出翻译字典功能
+# 可选值: true/false, 1/0, yes/no, on/off
+ExportTranslatedDictionaryEnabled=false
+
+# 是否启用字符串过滤功能
+# 可选值: true/false, 1/0, yes/no, on/off
+StringFilterEnabled=true
+
