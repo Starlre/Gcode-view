@@ -110,7 +110,34 @@ async function runSmokeTest() {
     await new Promise((resolve) => window.webContents.once('did-finish-load', resolve));
     await window.webContents.insertCSS('* { transition: none !important; }');
     await window.webContents.executeJavaScript("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('studio:theme'))");
+    // Use real pointer input to cover capture, dragging and release cleanup.
+    const divider = await window.webContents.executeJavaScript(`(() => {
+      const rect = document.getElementById('workspace-divider').getBoundingClientRect();
+      return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2), width: document.getElementById('sidebar').getBoundingClientRect().width };
+    })()`);
+    window.webContents.sendInputEvent({ type: 'mouseMove', x: divider.x, y: divider.y });
+    window.webContents.sendInputEvent({ type: 'mouseDown', x: divider.x, y: divider.y, button: 'left', clickCount: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    window.webContents.sendInputEvent({ type: 'mouseMove', x: divider.x + 100, y: divider.y });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    window.webContents.sendInputEvent({ type: 'mouseUp', x: divider.x + 100, y: divider.y, button: 'left', clickCount: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const draggedWidth = await window.webContents.executeJavaScript("document.getElementById('sidebar').getBoundingClientRect().width");
+    if (Math.abs(draggedWidth - divider.width - 100) > 2) {
+      throw new Error(`分隔线鼠标拖动失败：初始 ${divider.width.toFixed(1)}px，结果 ${draggedWidth.toFixed(1)}px`);
+    }
+    const reloaded = new Promise((resolve) => window.webContents.once('did-finish-load', resolve));
+    window.webContents.reload(); await reloaded;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const restoredWidth = await window.webContents.executeJavaScript("document.getElementById('sidebar').getBoundingClientRect().width");
+    if (Math.abs(restoredWidth - draggedWidth) > 2) {
+      const savedRatio = await window.webContents.executeJavaScript("localStorage.getItem('hkuprint-sidebar-ratio')");
+      throw new Error(`重新打开页面没有恢复面板占比：${JSON.stringify({ draggedWidth, restoredWidth, savedRatio })}`);
+    }
+    await window.webContents.insertCSS('* { transition: none !important; }');
+    await window.webContents.executeJavaScript("document.getElementById('reset-layout').click()");
     const result = await window.webContents.executeJavaScript('window.runStudioSmokeTest()');
+    const layout = await window.webContents.executeJavaScript('window.studioLayoutSmoke()');
     const artifactDir = process.env.STUDIO_ARTIFACT_DIR || (app.isPackaged
       ? path.join(app.getPath('temp'), 'hkuprint-studio-test') : path.join(__dirname, 'artifacts'));
     await mkdir(artifactDir, { recursive: true });
@@ -129,6 +156,9 @@ async function runSmokeTest() {
     if (render.differentPixels < 1000) throw new Error('三维渲染区域为空');
     await new Promise((resolve) => setTimeout(resolve, 350));
     await capture('studio-light.png');
+    await window.webContents.executeJavaScript('window.studioLayoutScreenshot()');
+    await capture('studio-layout.png');
+    await window.webContents.executeJavaScript("document.getElementById('layout-popover').hidePopover(); document.getElementById('reset-layout').click()");
     await window.webContents.executeJavaScript('window.studioModelScreenshot()');
     await new Promise((resolve) => setTimeout(resolve, 350));
     await capture('studio-model.png');
@@ -139,6 +169,7 @@ async function runSmokeTest() {
     await window.webContents.executeJavaScript("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('studio:theme'))");
     window.setSize(1180, 800);
     await new Promise((resolve) => setTimeout(resolve, 600));
+    const compactLayout = await window.webContents.executeJavaScript('window.studioLayoutSmoke()');
     await window.webContents.executeJavaScript('window.studioRenderProbe()');
     await new Promise((resolve) => setTimeout(resolve, 350));
     const compact = await window.webContents.executeJavaScript('window.studioLayoutProbe()');
@@ -146,10 +177,10 @@ async function runSmokeTest() {
     const exportResult = await request('export', { directory: artifactDir });
     const imported = await importFile(exportResult.gcode);
     const importResult = await window.webContents.executeJavaScript(`window.studioImportSmoke(${JSON.stringify(imported)})`);
-    const report = { ...result, render, compact, exportResult, importResult, packaged: app.isPackaged, errors };
+    const report = { ...result, render, layout, pointerDrag: { initialWidth: divider.width, draggedWidth, restoredWidth }, compactLayout, compact, exportResult, importResult, packaged: app.isPackaged, errors };
     await writeFile(path.join(artifactDir, 'smoke-report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report));
-    app.exit(errors.length || compact.horizontalOverflow ? 1 : 0);
+    app.exit(errors.length || compact.horizontalOverflow || compact.controlOverflow ? 1 : 0);
   } catch (error) { console.error(error); app.exit(1); }
 }
 

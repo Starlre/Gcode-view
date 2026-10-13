@@ -77,8 +77,20 @@ kbd { font-size: 12px; background: var(--surface-alt); padding: 3px 5px; border:
 .local-badge svg { width: 15px; height: 15px; color: var(--primary); }
 .icon-button { width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); display: inline-grid; place-items: center; flex-shrink: 0; transition: background 140ms; }
 .icon-button:hover:not(:disabled), .view-button:hover { background: var(--surface-alt); }
-.workspace { min-height: 0; display: grid; grid-template-columns: clamp(340px, 27vw, 430px) minmax(0, 1fr); gap: 16px; padding: 18px 20px; }
-.sidebar { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); }
+.workspace { min-height: 0; display: grid; grid-template-columns: var(--sidebar-width, clamp(340px, 28vw, 430px)) 16px minmax(0, 1fr); padding: 18px 20px; }
+.workspace-divider { position: relative; cursor: col-resize; touch-action: none; display: grid; place-items: center; border-radius: 5px; user-select: none; }
+.workspace-divider::before { content: ''; position: absolute; inset: 0 -4px; }
+.workspace-divider span { width: 4px; height: 48px; border-radius: 2px; background: var(--border); pointer-events: none; transition: background 140ms; }
+.workspace-divider:hover span, .workspace-divider:focus-visible span, .resizing-panels .workspace-divider span { background: var(--primary); }
+.workspace-divider:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.resizing-panels, .resizing-panels * { cursor: col-resize !important; user-select: none !important; }
+.resizing-panels .preview { pointer-events: none; }
+.layout-popover { position: fixed; inset: auto; margin: 0; width: 292px; padding: 16px; background: var(--surface); color: var(--text); border: 1px solid var(--panel-border); border-radius: 8px; box-shadow: var(--shadow); }
+.layout-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 16px; font-weight: 600; }
+.layout-heading .input-shell { width: 88px; }
+#sidebar-width { display: block; width: 100%; min-height: 28px; margin: 12px 0 0; accent-color: var(--primary); cursor: pointer; }
+.layout-popover .helper { margin: 8px 0 12px; }
+.sidebar { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); }
 .sidebar-tabs { display: flex; border-bottom: 1px solid var(--divider); background: var(--surface-alt); flex-shrink: 0; }
 .sidebar-tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; border: 0; border-bottom: 2px solid transparent; padding: 18px 8px; background: none; color: var(--muted); font-size: 17px; }
 .sidebar-tabs button.selected { border-bottom: 3px solid var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 700; }
@@ -234,7 +246,7 @@ dialog > p { font-size: 16px; line-height: 1.8; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1280px) {
   #app { grid-template-rows: 78px 58px minmax(0, 1fr) 34px; }
-  .workspace { grid-template-columns: 340px minmax(0, 1fr); padding: 12px; gap: 12px; }
+  .workspace { padding: 12px; }
   .app-header { padding: 0 20px; gap: 16px; }
   .header-file { display: none; }
   .header-actions { margin-left: auto; }

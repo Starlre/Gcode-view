@@ -5,6 +5,7 @@ import { createIcons, Box, Layers, FolderOpen, Download, Play, Pause, RotateCcw,
   MousePointer2, X, FileCode2, CircleCheck, LoaderCircle } from 'lucide';
 import { Viewport } from './viewport.js';
 import { formatTime, moveAtTime } from './gcode.js';
+import { setupLayout } from './layout.js';
 
 const icons = { Box, Layers, FolderOpen, Download, Play, Pause, RotateCcw, ChevronLeft,
   ChevronRight, Plus, Minus, Move3d, Scan, Eye, Sun, Moon, HelpCircle, Check, ArrowUp,
@@ -55,11 +56,19 @@ $('app').innerHTML = `
     <nav class="workflow" aria-label="工作步骤"><button id="model-tab" class="workflow-tab selected" aria-pressed="true"><span class="step-number">1</span>模型准备</button>
       <span class="workflow-line"></span><button id="path-tab" class="workflow-tab" aria-pressed="false" disabled><span class="step-number">2</span>走刀预览</button></nav>
     <div class="workspace-tools"><span class="local-badge">${icon('circle-check')}本地作业</span>
+      <button id="layout-toggle" class="button compact" popovertarget="layout-popover">${icon('settings-2')}布局</button>
       <button id="theme-toggle" class="icon-button" title="切换深色界面" aria-label="切换深色界面">${icon('moon')}</button>
       <button id="help-button" class="icon-button" title="操作帮助" aria-label="操作帮助">${icon('help-circle')}</button></div>
   </div>
-  <main class="workspace">
-    <aside class="sidebar" aria-label="模型与切片设置">
+  <div id="layout-popover" class="layout-popover" popover role="dialog" aria-labelledby="layout-heading">
+    <div class="layout-heading"><label id="layout-heading" for="sidebar-percent">参数区占比</label>
+      <div class="input-shell"><input id="sidebar-percent" type="number" step="1" aria-describedby="layout-hint" /><span>%</span></div></div>
+    <input id="sidebar-width" type="range" step="1" aria-label="调整参数区占比" />
+    <p id="layout-hint" class="helper">也可拖动中间分隔线，双击恢复默认。宽度会自动记住。</p>
+    <button id="reset-layout" class="button full">${icon('rotate-ccw')}恢复默认布局</button>
+  </div>
+  <main id="workspace" class="workspace">
+    <aside id="sidebar" class="sidebar" aria-label="模型与切片设置">
       <div class="sidebar-tabs" role="tablist" aria-label="设置分类"><button id="parameters-tab" class="selected" role="tab" aria-controls="parameters-panel" aria-selected="true">${icon('sliders-horizontal')}切片参数</button>
         <button id="object-tab" role="tab" aria-controls="object-panel" aria-selected="false">${icon('box')}模型</button></div>
       <div class="sidebar-scroll">
@@ -90,6 +99,8 @@ $('app').innerHTML = `
       </div>
       <div class="sidebar-action"><p id="slice-note">导入模型，开始你的打印作业</p><button id="slice-button" class="button primary full" disabled>${icon('layers')}开始切片</button></div>
     </aside>
+    <div id="workspace-divider" class="workspace-divider" role="separator" tabindex="0" aria-label="调整参数区与预览区宽度"
+      aria-controls="sidebar" aria-orientation="vertical" title="拖动调整宽度 · 双击恢复默认 · 方向键微调"><span aria-hidden="true"></span></div>
     <section class="preview" aria-label="三维预览">
       <div id="viewport-toolbar" class="viewport-toolbar" tabindex="-1"><div class="view-presets" aria-label="预览视角"><button class="icon-button" data-view="iso" title="等轴视图" aria-label="等轴视图">${icon('box')}</button>
         <button class="view-button" data-view="top">俯视</button><button class="view-button" data-view="front">正视</button><button class="view-button" data-view="side">侧视</button>
@@ -125,11 +136,13 @@ $('app').innerHTML = `
   <footer class="statusbar"><div class="status-message" role="status" aria-live="polite"><span id="status-indicator" class="status-indicator"></span><span id="status-text">就绪 · 导入模型或 G-code 文件</span></div><span id="status-detail">HKUprint Studio · 0.1</span></footer>
   <dialog id="help-dialog"><div class="dialog-heading"><h2>操作帮助</h2><button id="close-help" class="icon-button" aria-label="关闭帮助">${icon('x')}</button></div>
     <p>导入 STL / OBJ → 调整姿态与参数 → 开始切片 → 检查走刀 → 导出打印作业。</p><dl class="shortcuts"><dt>导入文件</dt><dd>Ctrl + O</dd><dt>播放 / 暂停</dt><dd>空格</dd><dt>前后单步</dt><dd>← / →</dd><dt>切换层</dt><dd>Page Up / Page Down</dd><dt>适应窗口</dt><dd>F</dd></dl>
-    <p class="helper">左键旋转，右键平移，滚轮缩放。开启“选面正视”后单击模型面，再选择“视角作为 Z”即可沿该方向切片。预览时间依据 G-code 速度估算。</p></dialog>
+    <p class="helper">左键旋转，右键平移，滚轮缩放。开启“选面正视”后单击模型面，再选择“视角作为 Z”即可沿该方向切片。预览时间依据 G-code 速度估算。</p>
+    <p class="helper">拖动参数区与预览区之间的分隔线，或在顶部“布局”里设置占比。双击分隔线恢复默认；分隔线获得焦点后，左右方向键微调，Shift + 方向键加大调整幅度，Enter 恢复默认。</p></dialog>
 `;
 
 function refreshIcons() { createIcons({ icons, attrs: { 'stroke-width': 2 } }); }
 refreshIcons();
+setupLayout();
 const viewport = new Viewport($('viewport'), () => status('已正对选中面；可将当前视角设为 Z 切片方向'));
 const parser = new Worker(new URL('./parse-worker.js', import.meta.url), { type: 'module' });
 let parseId = 0;
@@ -441,7 +454,7 @@ document.addEventListener('dragover', (event) => event.preventDefault());
 document.addEventListener('drop', (event) => event.preventDefault());
 window.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o') { event.preventDefault(); openFile(); return; }
-  if (event.target.matches('input,select,textarea') || $('help-dialog').open) return;
+  if (event.defaultPrevented || event.target.matches('input,select,textarea,[role="separator"]') || $('help-dialog').open || $('layout-popover').matches(':popover-open')) return;
   const actions = { ' ': togglePlay, ArrowRight: () => step(1), ArrowLeft: () => step(-1),
     PageUp: () => setLayer(state.layer + 1), PageDown: () => setLayer(state.layer - 1), f: () => viewport.fit() };
   if (actions[event.key]) { event.preventDefault(); actions[event.key](); }
@@ -451,10 +464,52 @@ call('info').then(() => status('就绪 · 导入模型或 G-code 文件')).catch
 
 window.studioLayoutProbe = () => ({
   horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+  controlOverflow: ['.viewport-toolbar', '.transport-row', '.progress-row'].some((selector) => {
+    const element = document.querySelector(selector); return element.scrollWidth > element.clientWidth + 1;
+  }),
+  sidebarWidth: $('sidebar').getBoundingClientRect().width,
+  previewWidth: document.querySelector('.preview').getBoundingClientRect().width,
+  sidebarPercent: Number($('workspace-divider').getAttribute('aria-valuenow')),
   viewport: { width: $('viewport').clientWidth, height: $('viewport').clientHeight },
   fontSize: getComputedStyle(document.body).fontSize,
   canvasCount: $('viewport').querySelectorAll('canvas').length,
 });
+window.studioLayoutSmoke = async () => {
+  const settle = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const check = () => {
+    const layout = window.studioLayoutProbe();
+    if (layout.horizontalOverflow || layout.controlOverflow || layout.sidebarWidth < 339 || layout.previewWidth < 679) throw new Error('面板调整后出现溢出或宽度越界');
+    if (Math.abs(viewport.camera.aspect - $('viewport').clientWidth / $('viewport').clientHeight) > 0.001) throw new Error('三维视口没有同步调整');
+    return layout;
+  };
+  $('reset-layout').click(); await settle();
+  const initial = check(), time = state.time, dirty = state.dirty;
+  const camera = viewport.camera.position.clone(), target = viewport.controls.target.clone();
+  const key = (name, shiftKey = false) => $('workspace-divider').dispatchEvent(new KeyboardEvent('keydown', { key: name, shiftKey, bubbles: true, cancelable: true }));
+  key('ArrowRight'); await settle();
+  if (check().sidebarWidth <= initial.sidebarWidth || state.time !== time) throw new Error('分隔线方向键与走刀快捷键冲突');
+  key('End'); await settle(); const widest = check();
+  key('Home'); await settle(); const narrowest = check();
+  if (widest.sidebarWidth <= narrowest.sidebarWidth) throw new Error('面板宽度不可调整');
+  key('ArrowRight', true); await settle(); check();
+  $('layout-toggle').click(); await settle();
+  if (!$('layout-popover').matches(':popover-open')) throw new Error('布局菜单没有打开');
+  for (const value of ['100', '-10', '']) {
+    $('sidebar-percent').value = value; $('sidebar-percent').dispatchEvent(new Event('change')); await settle(); check();
+  }
+  $('sidebar-width').value = 35; $('sidebar-width').dispatchEvent(new Event('input')); await settle();
+  const customized = check();
+  if (state.time !== time || state.dirty !== dirty || camera.distanceTo(viewport.camera.position) > 0.001 || target.distanceTo(viewport.controls.target) > 0.001) throw new Error('调整面板影响了走刀状态或观察角度');
+  $('layout-popover').hidePopover();
+  $('reset-layout').click(); await settle(); check();
+  if (Number(localStorage.getItem('hkuprint-sidebar-ratio')) !== 0.28) throw new Error('布局默认偏好未保存');
+  return { initial, widest, narrowest, customized, preservedViewAndPlayback: true };
+};
+window.studioLayoutScreenshot = async () => {
+  $('sidebar-percent').value = 35; $('sidebar-percent').dispatchEvent(new Event('change'));
+  $('layout-popover').showPopover();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+};
 window.studioRenderProbe = () => {
   viewport.renderNow();
   const context = viewport.renderer.getContext();
