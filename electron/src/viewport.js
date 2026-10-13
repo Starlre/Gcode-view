@@ -17,7 +17,7 @@ function dispose(object) {
 export class Viewport {
   constructor(host, onFace) {
     this.host = host; this.onFace = onFace; this.width = 80; this.height = 45;
-    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color('#edf1f4');
+    this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.05, 2000);
     this.camera.up.set(0, 0, 1);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -32,15 +32,16 @@ export class Viewport {
     const light = new THREE.DirectionalLight(0xffffff, 3);
     light.position.set(-30, -60, 140); this.scene.add(light);
     this.materials = [];
-    this.completedMaterial = this.wideMaterial(0x11955b, 2.0);
-    this.futureMaterial = this.wideMaterial(0x527e96, 1.6);
-    this.partialMaterial = this.wideMaterial(0x11955b, 2.6);
+    this.completedMaterial = this.wideMaterial(0xffffff, 2.2);
+    this.futureMaterial = this.wideMaterial(0xffffff, 1.9);
+    this.partialMaterial = this.wideMaterial(0xffffff, 2.8);
     this.needle = this.makeNeedle(); this.scene.add(this.needle); this.needle.visible = false;
     this.gizmoScene = new THREE.Scene();
     this.gizmoCamera = new THREE.PerspectiveCamera(35, 1, 0.1, 20);
     this.gizmoCamera.up.set(0, 0, 1);
-    this.gizmoScene.add(new THREE.AxesHelper(0.85));
-    const colors = ['#ce4451', '#188250', '#346cdb'];
+    const colors = ['#ff7785', '#6df0a1', '#70c1ff'];
+    const gizmoAxes = new THREE.AxesHelper(0.85);
+    gizmoAxes.setColors(...colors); this.gizmoScene.add(gizmoAxes);
     for (let axis = 0; axis < 3; axis++) {
       const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
       const context = canvas.getContext('2d'); context.font = 'bold 36px Segoe UI';
@@ -80,20 +81,21 @@ export class Viewport {
     dispose(this.bed);
     this.bed = new THREE.Group();
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height),
-      new THREE.MeshStandardMaterial({ color: 0xf9fafb, roughness: 0.85, metalness: 0.04, side: THREE.DoubleSide }));
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
     plane.position.set(width / 2, height / 2, -0.04); this.bed.add(plane);
     const points = [];
     for (let x = 0; x <= width; x += 5) points.push(x, 0, 0, x, height, 0);
     for (let y = 0; y <= height; y += 5) points.push(0, y, 0, width, y, 0);
     const grid = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3)),
-      new THREE.LineBasicMaterial({ color: 0xc4d0d8, transparent: true, opacity: 0.7 }));
+      new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 }));
     this.bed.add(grid);
     const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 0, 0), new THREE.Vector3(width, 0, 0),
       new THREE.Vector3(width, height, 0), new THREE.Vector3(0, height, 0)]),
-    new THREE.LineBasicMaterial({ color: 0x9baebb }));
+    new THREE.LineBasicMaterial());
     this.bed.add(outline);
-    const axes = new THREE.AxesHelper(12); axes.position.z = 0.06; this.bed.add(axes);
+    const axes = new THREE.AxesHelper(12); axes.setColors('#ff7785', '#6df0a1', '#70c1ff');
+    axes.position.z = 0.06; this.bed.add(axes);
     this.scene.add(this.bed); this.theme(this.dark ?? false); this.invalidate();
   }
 
@@ -107,13 +109,14 @@ export class Viewport {
     geometry.translate(-(b[0] + b[1]) / 2, -(b[2] + b[3]) / 2, -(b[4] + b[5]) / 2);
     geometry.computeVertexNormals();
     this.modelMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-      color: 0x668fa4, roughness: 0.55, metalness: 0.12, side: THREE.DoubleSide,
+      roughness: 0.65, metalness: 0.12, side: THREE.DoubleSide,
       transparent: true, opacity: 1, flatShading: true }));
     this.modelGroup = new THREE.Group(); this.rotationGroup = new THREE.Group();
     this.rotationGroup.add(this.modelMesh);
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 28),
-      new THREE.LineBasicMaterial({ color: 0x355e76, transparent: true, opacity: 0.36 }));
-    this.rotationGroup.add(edges); this.modelGroup.add(this.rotationGroup); this.scene.add(this.modelGroup);
+    this.modelEdges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 28),
+      new THREE.LineBasicMaterial({ transparent: true, opacity: 0.8 }));
+    this.rotationGroup.add(this.modelEdges); this.modelGroup.add(this.rotationGroup); this.scene.add(this.modelGroup);
+    this.theme(this.dark);
     this.updateMeshSettings(settings); this.setMode('model'); this.fit();
   }
 
@@ -157,7 +160,9 @@ export class Viewport {
     const ta = this.model.travelPrefix[layer.first], tb = this.model.travelPrefix[layer.last + 1];
     this.travelLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',
       new THREE.BufferAttribute(this.model.travel.slice(ta * 6, tb * 6), 3)),
-    new THREE.LineBasicMaterial({ color: 0x8f9da7, transparent: true, opacity: 0.5, depthTest: false }));
+    new THREE.LineDashedMaterial({ color: this.travelColor, dashSize: 0.8, gapSize: 0.5,
+      transparent: true, opacity: 0.85, depthTest: false }));
+    this.travelLines.computeLineDistances();
     this.travelLines.visible = this.showTravel ?? false; this.paths.add(this.travelLines);
     this.invalidate();
   }
@@ -193,16 +198,18 @@ export class Viewport {
 
   makeNeedle() {
     const group = new THREE.Group();
-    const metal = new THREE.MeshStandardMaterial({ color: 0xb2bdc7, metalness: 0.85, roughness: 0.25 });
+    const metal = new THREE.MeshStandardMaterial({ metalness: 0.25, roughness: 0.35 });
+    this.needleMetal = metal;
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.6, 16), metal);
     tip.rotation.x = -Math.PI / 2; tip.position.z = 0.8; group.add(tip);
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 3.5, 16), metal);
     shaft.rotation.x = Math.PI / 2; shaft.position.z = 3.35; group.add(shaft);
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.55, 2, 24),
-      new THREE.MeshStandardMaterial({ color: 0x344854, metalness: 0.3, roughness: 0.5 }));
+    this.needleBody = new THREE.MeshStandardMaterial({ metalness: 0.15, roughness: 0.55 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.55, 2, 24), this.needleBody);
     body.rotation.x = Math.PI / 2; body.position.z = 6; group.add(body);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.65, 0.8, 32),
-      new THREE.MeshBasicMaterial({ color: 0x11955b, side: THREE.DoubleSide, depthTest: false }));
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, depthTest: false }));
+    this.needleRing = ring;
     ring.position.z = 0.03; group.add(ring); return group;
   }
 
@@ -254,12 +261,22 @@ export class Viewport {
 
   theme(dark) {
     this.dark = dark;
-    this.scene.background.set(dark ? '#1b242c' : '#edf1f4');
-    this.completedMaterial.color.set(dark ? '#4de098' : '#11955b');
+    const styles = getComputedStyle(document.documentElement);
+    const color = (name) => styles.getPropertyValue(name).trim();
+    this.scene.background = new THREE.Color(color('--stage'));
+    this.completedMaterial.color.set(color('--path-completed'));
     this.partialMaterial.color.copy(this.completedMaterial.color);
-    this.futureMaterial.color.set(dark ? '#7dabc1' : '#527e96');
-    this.bed.children[0].material.color.set(dark ? '#2c3a46' : '#f9fafb');
-    this.bed.children[1].material.color.set(dark ? '#657b8c' : '#c4d0d8');
+    this.futureMaterial.color.set(color('--path-future'));
+    this.travelColor = color('--path-travel');
+    this.travelLines?.material.color.set(this.travelColor);
+    this.needleRing.material.color.copy(this.completedMaterial.color);
+    this.needleMetal.color.set(color('--needle-metal'));
+    this.needleBody.color.set(color('--needle-body'));
+    this.bed.children[0].material.color.set(color('--bed'));
+    this.bed.children[1].material.color.set(color('--grid'));
+    this.bed.children[2].material.color.set(color('--bed-outline'));
+    this.modelMesh?.material.color.set(color('--model'));
+    this.modelEdges?.material.color.set(color('--model-outline'));
     this.invalidate();
   }
 

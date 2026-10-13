@@ -128,7 +128,7 @@ $('app').innerHTML = `
     <p class="helper">左键旋转，右键平移，滚轮缩放。开启“选面正视”后单击模型面，再选择“视角作为 Z”即可沿该方向切片。预览时间依据 G-code 速度估算。</p></dialog>
 `;
 
-function refreshIcons() { createIcons({ icons, attrs: { 'stroke-width': 1.7 } }); }
+function refreshIcons() { createIcons({ icons, attrs: { 'stroke-width': 2 } }); }
 refreshIcons();
 const viewport = new Viewport($('viewport'), () => status('已正对选中面；可将当前视角设为 Z 切片方向'));
 const parser = new Worker(new URL('./parse-worker.js', import.meta.url), { type: 'module' });
@@ -412,16 +412,22 @@ $('reset-playback').onclick = () => setLayer(state.layer);
 $('speed-down').onclick = () => changeSpeed(-1); $('speed-up').onclick = () => changeSpeed(1);
 $('show-travel').onchange = () => { viewport.showTravel = $('show-travel').checked; if (viewport.travelLines) viewport.travelLines.visible = viewport.showTravel; viewport.invalidate(); };
 $('show-needle').onchange = () => { viewport.showNeedle = $('show-needle').checked; viewport.needle.visible = viewport.showNeedle; viewport.invalidate(); };
-function applyTheme() { viewport.theme(document.documentElement.dataset.theme === 'dark'); }
+function applyTheme() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  viewport.theme(dark);
+  const label = dark ? '切换浅色界面' : '切换深色界面';
+  $('theme-toggle').innerHTML = icon(dark ? 'sun' : 'moon');
+  $('theme-toggle').setAttribute('aria-label', label);
+  $('theme-toggle').title = label;
+  refreshIcons();
+}
 try { document.documentElement.dataset.theme = localStorage.getItem('hkuprint-theme') || 'light'; } catch { /* Optional preference. */ }
 applyTheme(); window.addEventListener('studio:theme', applyTheme);
 $('theme-toggle').onclick = () => {
   const dark = document.documentElement.dataset.theme !== 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  $('theme-toggle').innerHTML = icon(dark ? 'sun' : 'moon');
-  $('theme-toggle').setAttribute('aria-label', dark ? '切换浅色界面' : '切换深色界面');
   try { localStorage.setItem('hkuprint-theme', dark ? 'dark' : 'light'); } catch { /* Optional preference. */ }
-  refreshIcons(); applyTheme();
+  applyTheme();
 };
 $('help-button').onclick = () => $('help-dialog').showModal(); $('close-help').onclick = () => $('help-dialog').close();
 $('settings-form').onsubmit = (event) => { event.preventDefault(); slice(); };

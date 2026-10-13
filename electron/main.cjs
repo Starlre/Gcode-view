@@ -1,12 +1,17 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const { readFile, writeFile, mkdir } = require('node:fs/promises');
+const { mkdtempSync } = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 
 let window, worker, workerError = '', lastJob = null, nextId = 0;
 const pending = new Map();
 const smoke = process.argv.includes('--smoke-test');
+if (smoke) {
+  app.setPath('userData', mkdtempSync(path.join(app.getPath('temp'), 'hkuprint-studio-smoke-')));
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
 
 function rejectPending(message) {
   for (const entry of pending.values()) entry.reject(new Error(message));
@@ -104,29 +109,40 @@ async function runSmokeTest() {
   try {
     await new Promise((resolve) => window.webContents.once('did-finish-load', resolve));
     await window.webContents.insertCSS('* { transition: none !important; }');
+    await window.webContents.executeJavaScript("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('studio:theme'))");
     const result = await window.webContents.executeJavaScript('window.runStudioSmokeTest()');
     const artifactDir = process.env.STUDIO_ARTIFACT_DIR || (app.isPackaged
       ? path.join(app.getPath('temp'), 'hkuprint-studio-test') : path.join(__dirname, 'artifacts'));
     await mkdir(artifactDir, { recursive: true });
+    const capture = async (name) => {
+      await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+      await window.webContents.executeJavaScript('window.studioRenderProbe()');
+      // Prime the hidden window's compositor before capturing the current state.
+      await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await window.webContents.executeJavaScript('window.studioRenderProbe()');
+      const screenshot = await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+      await writeFile(path.join(artifactDir, name), screenshot.toPNG());
+    };
     await new Promise((resolve) => setTimeout(resolve, 600));
     const render = await window.webContents.executeJavaScript('window.studioRenderProbe()');
     if (render.differentPixels < 1000) throw new Error('三维渲染区域为空');
     await new Promise((resolve) => setTimeout(resolve, 350));
-    await writeFile(path.join(artifactDir, 'studio-light.png'), (await window.webContents.capturePage()).toPNG());
+    await capture('studio-light.png');
     await window.webContents.executeJavaScript('window.studioModelScreenshot()');
     await new Promise((resolve) => setTimeout(resolve, 350));
-    await writeFile(path.join(artifactDir, 'studio-model.png'), (await window.webContents.capturePage()).toPNG());
+    await capture('studio-model.png');
     await window.webContents.executeJavaScript('window.studioPathScreenshot()');
     await window.webContents.executeJavaScript("document.documentElement.dataset.theme = 'dark'; window.dispatchEvent(new Event('studio:theme'))");
     await new Promise((resolve) => setTimeout(resolve, 250));
-    await writeFile(path.join(artifactDir, 'studio-dark.png'), (await window.webContents.capturePage()).toPNG());
+    await capture('studio-dark.png');
     await window.webContents.executeJavaScript("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('studio:theme'))");
     window.setSize(1180, 800);
     await new Promise((resolve) => setTimeout(resolve, 600));
     await window.webContents.executeJavaScript('window.studioRenderProbe()');
     await new Promise((resolve) => setTimeout(resolve, 350));
     const compact = await window.webContents.executeJavaScript('window.studioLayoutProbe()');
-    await writeFile(path.join(artifactDir, 'studio-compact.png'), (await window.webContents.capturePage()).toPNG());
+    await capture('studio-compact.png');
     const exportResult = await request('export', { directory: artifactDir });
     const imported = await importFile(exportResult.gcode);
     const importResult = await window.webContents.executeJavaScript(`window.studioImportSmoke(${JSON.stringify(imported)})`);
@@ -139,7 +155,7 @@ async function runSmokeTest() {
 
 app.whenReady().then(() => {
   window = new BrowserWindow({ width: 1540, height: 1000, minWidth: 1120, minHeight: 760,
-    title: 'HKUprint Studio', backgroundColor: '#f3f5f7', show: !smoke,
+    title: 'HKUprint Studio', backgroundColor: '#d8e0e9', show: !smoke,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true,
       nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
   window.setMenuBarVisibility(false);

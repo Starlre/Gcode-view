@@ -8,6 +8,8 @@ HKUprint Studio 是用于 STL / OBJ 模型切片与 G-code 三维走刀预览的
 
 新版整合 STL/OBJ 切片与 G-code 三维走刀查看，支持大字体参数区、模型旋转与选面正视、视角作为 Z、左侧层滑块、下方走刀进度、调速播放、针头与 XYZ 轴，以及浅色/深色界面。
 
+界面使用深蓝顶栏、清晰的参数标签与控件边框；三维工作区采用深色背景，突出模型轮廓、针头和走刀轨迹。
+
 导出为独立打印作业目录，含 `run.gcode` 和逐层曝光 PNG。详细使用、开发和打包说明见 [electron/README.md](electron/README.md)。
 
 ![浅色界面中的分层走刀预览，包含参数面板、层滑块、针头和播放控制](docs/images/studio-light.png)
