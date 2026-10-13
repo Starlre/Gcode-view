@@ -1,6 +1,6 @@
 # G-code 软件
 
-当前目录是切片和预览软件的独立工作副本。`HKUprint/Gcode view` 中另有较早版本，不应混用。
+HKUprint Studio 是用于 STL / OBJ 模型切片与 G-code 三维走刀预览的桌面软件，支持回字形路径、逐层查看、调速播放和打印作业导出。
 
 ## Electron 工作台
 
