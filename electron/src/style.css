@@ -130,6 +130,37 @@ select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--bo
 .dimensions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .dimensions span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
 .dimensions strong { font-size: 18px; }
+/* Compact desktop settings: labels and values share one row. */
+.sidebar-tabs button { padding: 11px 8px; }
+.sidebar-scroll { padding: 0 16px; scroll-padding: 8px; }
+.sidebar .section-caption { margin-bottom: 6px; }
+.sidebar .file-section { padding: 10px 0; }
+.sidebar .object-row { gap: 8px; }
+.sidebar .object-icon { width: 34px; height: 34px; }
+.sidebar .object-row div > span { margin-top: 2px; }
+.sidebar .setting-section { padding: 10px 0; }
+.sidebar .setting-section > h2, .sidebar .setting-section > summary { padding: 5px 8px; font-size: 18px; }
+.sidebar .setting-section > h2, .sidebar details[open] summary { margin-bottom: 8px; }
+.sidebar .section-tag { padding: 1px 6px; }
+.sidebar .field-grid { grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 6px; }
+.sidebar .field-grid:last-child { margin-bottom: 0; }
+.sidebar .field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(132px, 46%); align-items: center; column-gap: 10px; margin-bottom: 6px; }
+.sidebar .field:last-child, .sidebar .field-grid .field { margin-bottom: 0; }
+.sidebar .field label { margin: 0; line-height: 1.4; }
+.sidebar .input-shell { min-height: 34px; }
+.sidebar .input-shell input { height: 32px; padding: 4px 8px; }
+.sidebar .input-shell > span { padding-right: 7px; }
+.sidebar .field-error { grid-column: 1 / -1; margin-top: 3px; }
+.sidebar .path-rule { padding: 4px 6px; margin-top: 6px; }
+.sidebar .select-label { margin-bottom: 4px; }
+.sidebar select { min-height: 34px; padding: 5px 8px; margin-bottom: 8px; }
+.sidebar .check-row { margin-top: 6px; min-height: 26px; }
+.sidebar .helper { margin-top: 8px; line-height: 1.5; }
+.sidebar .job-section { padding: 12px 0; }
+.sidebar .job-stats { gap: 10px 16px; }
+.sidebar .sidebar-action { padding: 10px 16px 12px; }
+.sidebar .sidebar-action p { margin-bottom: 6px; }
+.sidebar .sidebar-action .button { min-height: 44px; padding: 7px 12px; }
 .preview { min-width: 0; min-height: 0; display: grid; grid-template-rows: 62px minmax(0, 1fr) 172px; overflow: hidden; border: 1px solid var(--panel-border); border-radius: 8px; box-shadow: var(--shadow); background: var(--surface); }
 .viewport-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border); gap: 8px; }
 .view-presets, .view-tools { display: flex; align-items: center; gap: 4px; }
