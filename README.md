@@ -10,6 +10,26 @@
 
 导出为独立打印作业目录，含 `run.gcode` 和逐层曝光 PNG。详细使用、开发和打包说明见 [electron/README.md](electron/README.md)。
 
+![浅色界面中的分层走刀预览，包含参数面板、层滑块、针头和播放控制](docs/images/studio-light.png)
+
+左侧设置切片参数，预览窗口左边切换层，下方查看层内走刀进度并调整播放速度。绿色显示已走过的轨迹，切换到高层时保留底层路径。
+
+## 界面预览
+
+### 模型准备
+
+在“模型”页调整 X、Y、Z 旋转角度；预览上方提供“选面正视”和“视角作为 Z”，用于确定切片方向。
+
+![模型准备界面，左侧显示模型尺寸和旋转参数，右侧显示三维方块](docs/images/studio-model.png)
+
+### 深色主题
+
+点击顶部月亮或太阳按钮切换主题，模型预览与走刀控制使用相同布局。
+
+![深色主题中的回字形走刀预览](docs/images/studio-dark.png)
+
+截图使用 15 mm 示例方块，演示层高为 1 mm。较小窗口下的布局与操作说明见 [Electron 使用文档](electron/README.md#界面与操作)。
+
 ## 原程序
 
 - `GcodeSlicer.exe` / `start_gcode_slicer.cmd`：原 Tkinter 切片器。
