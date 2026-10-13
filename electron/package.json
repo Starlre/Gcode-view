@@ -1,0 +1,34 @@
+{
+  "name": "hkuprint-studio",
+  "version": "0.1.0",
+  "description": "HKUprint 模型切片与三维走刀工作台",
+  "private": true,
+  "author": "郭小亮",
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.cjs",
+    "build": "vite build",
+    "start": "npm run build && node scripts/start.cjs",
+    "test": "node --test tests/*.test.js && python -B -m unittest discover -s backend -p test_*.py",
+    "smoke": "npm run build && node scripts/start.cjs --smoke-test",
+    "package": "node scripts/package.cjs"
+  },
+  "dependencies": {
+    "lucide": "^0.468.0",
+    "three": "^0.185.0"
+  },
+  "devDependencies": {
+    "electron": "40.10.6",
+    "electron-builder": "^26.0.12",
+    "vite": "^7.0.0"
+  },
+  "build": {
+    "appId": "org.hkuprint.studio",
+    "productName": "HKUprint Studio",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "main.cjs", "preload.cjs", "package.json"],
+    "extraResources": [{ "from": "backend-dist/hku-slice-backend.exe", "to": "backend/hku-slice-backend.exe" }],
+    "win": { "target": "dir", "icon": "assets/studio.ico", "signExecutable": false }
+  }
+}

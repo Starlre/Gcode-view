@@ -301,6 +301,38 @@ def _remove_collinear(points: list[tuple[float, float]], eps: float = MERGE_EPS)
     return cleaned
 
 
+def _collapse_short_edges(points: list[tuple[float, float]], minimum: float) -> list[tuple[float, float]]:
+    """合并比 minimum 还短的边，消除切片轮廓上的锯齿抖动。
+
+    切面轮廓由三角面与切平面求交得到，相邻点常呈"长短交替"的微小抖动
+    （实测出现 0.007mm 与 0.071mm 交替的边）。内缩时这些抖动边会先翻转，
+    使 _offset_path 的"边不可反向"判据在第一次偏移就返回 None，表现为
+    实心截面只描了一圈外轮廓、回字形填充完全出不来。
+
+    这里反复合并当前最短的边（删除该边的后一个端点），直到所有边都不短于
+    minimum。minimum 取一个环距：比环距还短的边小于填充分辨率本身，
+    保留它们只会让内缩失败，不影响回字形能表达的几何。
+    """
+    pts = list(points)
+    while len(pts) > 3:
+        count = len(pts)
+        shortest = min(
+            range(count),
+            key=lambda index: math.hypot(
+                pts[(index + 1) % count][0] - pts[index][0],
+                pts[(index + 1) % count][1] - pts[index][1],
+            ),
+        )
+        length = math.hypot(
+            pts[(shortest + 1) % count][0] - pts[shortest][0],
+            pts[(shortest + 1) % count][1] - pts[shortest][1],
+        )
+        if length >= minimum:
+            break
+        pts.pop((shortest + 1) % count)
+    return pts
+
+
 def _offset_path(path: list[tuple[float, float]], distance: float) -> list[tuple[float, float]] | None:
     """向内等距偏移闭合多边形，返回均匀间距的内环（真偏移，非形心缩放）。
 
@@ -309,7 +341,10 @@ def _offset_path(path: list[tuple[float, float]], distance: float) -> list[tuple
     """
     if distance <= 0:
         return path[:]
-    points = _remove_collinear(_ring_points(path))
+    points = _collapse_short_edges(
+        _remove_collinear(_ring_points(path)),
+        max(MERGE_EPS, distance),
+    )
     count = len(points)
     if count < 3:
         return None
@@ -454,6 +489,22 @@ def _concentric_rings(source_path: list[tuple[float, float]], settings: Settings
             rings.append(ring)
             current = ring
     return rings
+
+
+def _rotate_to_diagonal_start(path: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """把闭合环的起点转到"对角角点"，使环与环之间沿对角线切换。
+
+    与项目既有回字路径（如 Prints/cube15 系列）一致：每圈都从同一个方向的
+    角点起刀——方形的左下角 (5,5) → (6,6) → (7,7)，圈间用一段 G0 沿 45°
+    对角线推进。这里取 x+y 最小的顶点作为起刀角点，方形轮廓即左下角，
+    圆形或凹形轮廓则取其最靠近左下方向的顶点，效果一致。
+    """
+    points = _ring_points(path)
+    if len(points) < 3:
+        return path
+    start = min(range(len(points)), key=lambda index: (points[index][0] + points[index][1], points[index][1]))
+    rotated = points[start:] + points[:start]
+    return rotated + [rotated[0]]
 
 
 def slice_mesh(mesh: Mesh, settings: Settings) -> list[SliceLayer]:
@@ -623,6 +674,7 @@ def build_gcode(layers: list[SliceLayer], settings: Settings, output_directory: 
         sibling_loops: list[tuple | None] = [None] * len(layer.paths)
         for source_index, source_path in enumerate(layer.paths):
             rings = _concentric_rings(source_path, settings)
+            usable_rings: list[list[tuple[float, float]]] = []
             for path in rings:
                 if len(path) < 2:
                     continue
@@ -645,6 +697,11 @@ def build_gcode(layers: list[SliceLayer], settings: Settings, output_directory: 
                             break
                     if duplicate:
                         continue
+                usable_rings.append(path)
+            # 由内向外：先走最内圈，再一圈圈往外扩；每圈都从对角角点起刀，
+            # 圈间用一段 G0 沿对角线切到下一圈（与既有 run.gcode 的回字路径一致）。
+            for path in reversed(usable_rings):
+                path = _rotate_to_diagonal_start(path)
                 first_x, first_y = path[0]
                 lines += [
                     f"G0 X{first_x:.3f} Y{first_y:.3f} F{settings.xy_travel_speed:.6f};",
